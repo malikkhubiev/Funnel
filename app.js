@@ -84,7 +84,7 @@ function renderStep(container, stepIndex, onDone) {
     const h = document.createElement('h3');
     h.innerHTML = 'Поздравляем!<br>Вы прошли тест 🎉';
     const p = document.createElement('p');
-    p.textContent = 'Спасибо за участие!';
+    p.innerHTML = 'Спасибо за участие!';
     p.classList.add("thanks")
     done.appendChild(h);
     done.appendChild(p);
@@ -109,7 +109,7 @@ function renderStep(container, stepIndex, onDone) {
 
   if (item.type === 'reveal') {
     const q = document.createElement('p');
-    q.textContent = item.question;
+    q.innerHTML = item.question;
     const reveal = document.createElement('button');
     reveal.classList.add("right")
     reveal.textContent = '✅ Правильный ответ';
