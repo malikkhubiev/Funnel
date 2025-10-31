@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRM — Прогресс лида</title>
+  <style>
+    body { margin:0; background:#000; color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif }
+    .container { max-width:1100px; margin:0 auto; padding:20px }
+    h1 { font-size:28px; margin:0 0 16px }
+    .hint { color:#bbb; font-size:14px; margin-bottom:20px }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px }
+    .controls input { background:#111; color:#fff; border:1px solid #333; border-radius:8px; padding:10px 12px; font-size:16px }
+    .controls button { background:#1f6feb; color:#fff; border:0; border-radius:8px; padding:10px 14px; font-size:16px; cursor:pointer }
+    .controls select { background:#111; color:#fff; border:1px solid #333; border-radius:8px; padding:10px 12px; font-size:16px }
+    .card { background:#0a0a0a; border:1px solid #222; border-radius:12px; padding:16px; margin-bottom:16px }
+    .grid { width:100%; border-collapse:collapse; font-size:18px }
+    .grid th, .grid td { border-bottom:1px solid #222; padding:12px 10px; text-align:left }
+    .badge { display:inline-block; padding:4px 10px; border-radius:999px; font-size:16px }
+    .ok { background:#0f5132; color:#d1f7e3 }
+    .warn { background:#5c2d0b; color:#ffe1b3 }
+    .muted { color:#aaa }
+    .mono { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace }
+  </style>
+  </head>
+<body>
+  <div class="container">
+    <h1>CRM — Все лиды</h1>
+    <div class="hint">Список лидов с прогрессом шагов и статусом оплаты. Пагинация по 100.</div>
+    <div class="controls">
+      <input id="qInput" placeholder="Поиск (имя/email/телефон)">
+      <input id="nameInput" placeholder="Имя">
+      <input id="emailInput" placeholder="Email">
+      <input id="phoneInput" placeholder="Телефон">
+      <input id="leadIdInput" type="number" min="1" placeholder="ID лида">
+      <button id="openLeadBtn">Открыть по ID</button>
+      <select id="notifiedSelect">
+        <option value="">Notified: все</option>
+        <option value="true">Notified: да</option>
+        <option value="false">Notified: нет</option>
+      </select>
+      <input id="fromInput" type="datetime-local" placeholder="c">
+      <input id="toInput" type="datetime-local" placeholder="по">
+      <select id="sortBy">
+        <option value="created_at">Сорт: created_at</option>
+        <option value="id">Сорт: id</option>
+        <option value="name">Сорт: name</option>
+        <option value="email">Сорт: email</option>
+        <option value="phone">Сорт: phone</option>
+        <option value="notified">Сорт: notified</option>
+      </select>
+      <select id="sortDir">
+        <option value="desc">desc</option>
+        <option value="asc">asc</option>
+      </select>
+      <select id="payFilter">
+        <option value="">Оплата: все</option>
+        <option value="paid">Оплата: paid</option>
+        <option value="pending">Оплата: pending</option>
+        <option value="not">Оплата: not set</option>
+      </select>
+      <input id="pageInput" type="number" min="1" value="1" placeholder="Страница">
+      <button id="reloadBtn">Обновить</button>
+    </div>
+
+    <div id="leadCard" class="card" style="display:none"></div>
+    <div id="tableCard" class="card" style="display:none"></div>
+  </div>
+
+  <script>
+  (function() {
+    const API = 'https://aim-pay-bot-server-4c57.onrender.com';
+
+    function getQueryParam(name) {
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name);
+    }
+
+    async function fetchJson(url, opts) {
+      const res = await fetch(url, opts);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+
+    function renderLeadCard(data) {
+      const box = document.getElementById('leadCard');
+      if (!data || data.status !== 'success') {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+      }
+      const lead = data.lead || {};
+      box.style.display = '';
+      box.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <div><b>Лид #${lead.id || ''}</b></div>
+          <div class="muted">${new Date().toLocaleString()}</div>
+        </div>
+        <div style="margin-top:8px">${lead.name || '-'} · <span class="mono">${lead.email || '-'}</span> · <span class="mono">${lead.phone || '-'}</span></div>
+        <div id="leadProgress" style="margin-top:12px" class="muted">загрузка прогресса…</div>
+      `;
+    }
+
+    function renderLeadProgress(progress) {
+      const el = document.getElementById('leadProgress');
+      if (!el) return;
+      if (!progress || !progress.length) {
+        el.innerHTML = '<span class="muted">Пока нет ответов</span>';
+        el.classList.add('muted');
+        return;
+      }
+      el.classList.remove('muted');
+      el.innerHTML = progress.map(r => `
+        <div class="question">
+          <div><b>${r.step}</b></div>
+          <div>${r.answer || ''}</div>
+          <div class="muted">${r.created_at}</div>
+        </div>
+      `).join('');
+    }
+
+    const steps = [
+        { idx: 1, title: 'Q1: Правильный ответ' },
+        { idx: 2, title: 'Q2: Правильный ответ' },
+        { idx: 3, title: 'Q3: Правильный ответ' },
+        { idx: 4, title: 'Q4: Правильный ответ' },
+        { idx: 5, title: 'Q5: Правильный ответ' },
+        { idx: 6, title: 'Q6: Правильный ответ' },
+        { idx: 7, title: 'Q7: Оценка интереса (1–10)' },
+        { idx: 8, title: 'Q8: Готовность (1–10)' },
+        { idx: 9, title: 'Q9: Материалы в Telegram' }
+      ];
+
+    function renderTable(items) {
+      const box = document.getElementById('tableCard');
+      box.style.display = '';
+      const head = `
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Имя</th>
+              <th>Email</th>
+              <th>Телефон</th>
+              <th>Оплата</th>
+              <th>Шаги (по порядку)</th>
+              <th>Создан</th>
+            </tr>
+          </thead>
+          <tbody id="gridBody"></tbody>
+        </table>`;
+      box.innerHTML = head;
+      const body = box.querySelector('#gridBody');
+      body.innerHTML = items.map(it => {
+        const paymentBadge = `<span class="badge muted">...</span>`; // заполнится позже
+        return `<tr data-id="${it.id}" data-email="${it.email || ''}">
+          <td class="mono">${it.id}</td>
+          <td>${it.name || '-'}</td>
+          <td class="mono">${it.email || '-'}</td>
+          <td class="mono">${it.phone || '-'}</td>
+          <td class="payment">${paymentBadge}</td>
+          <td class="progress muted">загрузка…</td>
+          <td class="muted">${new Date(it.created_at).toLocaleString()}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function formatPayment(status) {
+      if (status === 'paid') return `<span class="badge ok">paid</span>`;
+      if (status === 'pending') return `<span class="badge warn">pending</span>`;
+      return `<span class="badge muted">not set</span>`;
+    }
+
+    function summarizeProgress(progress) {
+      // Порядок шагов и ответы; отмечаем пропуски
+      const byStep = new Map(progress.map(p => [Number(p.step), p]));
+      const parts = steps.map(s => {
+        const hit = byStep.get(s.idx);
+        if (!hit) return `${s.idx}: D`;
+        const ans = hit.answer || '✓';
+        return `${s.idx}:${ans}`;
+      });
+      return parts.join(' → ');
+    }
+
+    function getFilters() {
+      const q = document.getElementById('qInput').value.trim();
+      const name = document.getElementById('nameInput').value.trim();
+      const email = document.getElementById('emailInput').value.trim();
+      const phone = document.getElementById('phoneInput').value.trim();
+      const notifiedVal = document.getElementById('notifiedSelect').value;
+      const fromVal = document.getElementById('fromInput').value;
+      const toVal = document.getElementById('toInput').value;
+      const sortBy = document.getElementById('sortBy').value;
+      const sortDir = document.getElementById('sortDir').value;
+      const payFilter = document.getElementById('payFilter').value; // client-side only
+      return { q, name, email, phone, notifiedVal, fromVal, toVal, sortBy, sortDir, payFilter };
+    }
+
+    function buildQuery(params) {
+      const sp = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') sp.set(k, v);
+      });
+      return sp.toString();
+    }
+
+    async function loadAll(page) {
+      const limit = 100;
+      const offset = (page - 1) * limit;
+      const { q, name, email, phone, notifiedVal, fromVal, toVal, sortBy, sortDir, payFilter } = getFilters();
+      const query = buildQuery({ offset, limit, q, name, email, phone, sort_by: sortBy, sort_dir: sortDir, created_from: fromVal ? new Date(fromVal).toISOString() : '', created_to: toVal ? new Date(toVal).toISOString() : '', notified: notifiedVal });
+      const listResp = await fetchJson(`${API}/form_warm/clients?${query}`);
+      if (listResp.status !== 'success') throw new Error('Не удалось получить список лидов');
+      const items = listResp.items || [];
+      renderTable(items);
+
+      // Параллельно подтянем для каждой строки статус оплаты и прогресс
+      let rowsData = await Promise.all(items.map(async (it) => {
+        // payment
+        let paymentStatus = 'not set';
+        try {
+          if (it.email) {
+            const ps = await fetchJson(`${API}/get_payment_status`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: it.email })
+            });
+            paymentStatus = ps.payment_status || 'not set';
+          }
+        } catch (_) {}
+
+        // progress
+        let progress = [];
+        try {
+          const pr = await fetchJson(`${API}/form_warm/clients/${it.id}/progress`);
+          progress = pr.progress || [];
+        } catch (_) {}
+
+        return { id: it.id, paymentStatus, progress };
+      }));
+
+      // client-side filter by payment status
+      if (payFilter) {
+        rowsData = rowsData.filter(r => (
+          (payFilter === 'paid' && r.paymentStatus === 'paid') ||
+          (payFilter === 'pending' && r.paymentStatus === 'pending') ||
+          (payFilter === 'not' && (!r.paymentStatus || r.paymentStatus === 'not set'))
+        ));
+      }
+
+      // apply updates to rows (may hide unmatched by payment)
+      const allTrs = Array.from(document.querySelectorAll('#gridBody tr'));
+      const keepIds = new Set(rowsData.map(r => r.id));
+      allTrs.forEach(tr => {
+        const id = Number(tr.getAttribute('data-id'));
+        const data = rowsData.find(r => r.id === id);
+        if (!data && payFilter) {
+          tr.remove();
+          return;
+        }
+        if (data) {
+          const payTd = tr.querySelector('.payment');
+          const progTd = tr.querySelector('.progress');
+          if (payTd) payTd.innerHTML = formatPayment(data.paymentStatus);
+          if (progTd) {
+            progTd.classList.remove('muted');
+            progTd.textContent = summarizeProgress(data.progress);
+          }
+        }
+      });
+    }
+
+    document.getElementById('reloadBtn').addEventListener('click', () => {
+      const v = Number(document.getElementById('pageInput').value || '1');
+      const page = Math.max(1, v|0);
+      loadAll(page).catch(err => alert(err.message));
+    });
+
+    document.getElementById('openLeadBtn').addEventListener('click', async () => {
+      const raw = document.getElementById('leadIdInput').value;
+      const id = Number(raw || '0');
+      if (!id) {
+        alert('Укажите корректный ID');
+        return;
+      }
+      try {
+        const client = await fetchJson(`${API}/form_warm/clients/${id}`);
+        renderLeadCard(client);
+        const pr = await fetchJson(`${API}/form_warm/clients/${id}/progress`);
+        renderLeadProgress(pr.progress || []);
+      } catch (e) {
+        alert('Ошибка загрузки лида: ' + e.message);
+      }
+    });
+
+    const initialPage = Number(getQueryParam('page') || '1');
+    document.getElementById('pageInput').value = initialPage;
+    loadAll(initialPage).catch(err => alert(err.message));
+  })();
+  </script>
+</body>
+</html>
+
