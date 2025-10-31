@@ -97,7 +97,7 @@ function renderStep(container, stepIndex, onDone) {
   wrap.className = 'question';
 
   const title = document.createElement('h3');
-  title.textContent = item.title;
+  title.innerHTML = item.title;
   wrap.appendChild(title);
 
   const body = document.createElement('div');
