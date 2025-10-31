@@ -27,7 +27,7 @@
   <header class="header">
     <div class="container">
       <h1>Тест на мышление инженера ML</h1>
-      <div id="leadInfo" class="hint myown">
+      <div id="leadInfo" class="hint">
         Загрузка данных лида…
       </div>
     </div>
@@ -50,7 +50,7 @@
           if(resp.status !== 'success'){ el.textContent = 'Лид не найден'; return; }
           const lead = resp.lead;
           el.innerHTML = `
-            <div><b>Имя:</b> ${lead.name || '-'} &nbsp; <b>Email:</b> ${lead.email || '-'} &nbsp; <b>Телефон:</b> ${lead.phone || '-'}</div>
+            <div class="myown"><b>Имя:</b> ${lead.name || '-'} &nbsp; <b>Email:</b> ${lead.email || '-'} &nbsp; <b>Телефон:</b> ${lead.phone || '-'}</div>
           `;
         }catch(e){ el.textContent = 'Ошибка загрузки данных лида'; }
       }
