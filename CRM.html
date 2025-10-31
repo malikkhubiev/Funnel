@@ -21,6 +21,7 @@
     .warn { background:#5c2d0b; color:#ffe1b3 }
     .muted { color:#aaa }
     .mono { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace }
+    .question { line-height:1.6 }
   </style>
   </head>
 <body>
@@ -110,25 +111,32 @@
         return;
       }
       el.classList.remove('muted');
-      el.innerHTML = progress.map(r => `
-        <div class="question">
-          <div><b>${r.step}</b></div>
-          <div>${r.answer || ''}</div>
-          <div class="muted">${r.created_at}</div>
+      el.innerHTML = progress.map(r => {
+        const stepNum = Number(r.step);
+        const stepInfo = steps.find(s => s.idx === stepNum);
+        const questionText = stepInfo ? stepInfo.question : `Вопрос ${stepNum}`;
+        return `
+        <div class="question" style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #222">
+          <div style="margin-bottom:8px"><b>Шаг ${r.step}: ${stepInfo ? stepInfo.title : ''}</b></div>
+          <div style="margin-bottom:8px;color:#aaa;font-size:14px">Вопрос: ${questionText}</div>
+          <div style="margin-bottom:4px">Ответ: ${r.answer || '—'}</div>
+          <div class="muted" style="font-size:12px">${r.created_at}</div>
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
 
     const steps = [
-        { idx: 1, title: 'Q1: Правильный ответ' },
-        { idx: 2, title: 'Q2: Правильный ответ' },
-        { idx: 3, title: 'Q3: Правильный ответ' },
-        { idx: 4, title: 'Q4: Правильный ответ' },
-        { idx: 5, title: 'Q5: Правильный ответ' },
-        { idx: 6, title: 'Q6: Правильный ответ' },
-        { idx: 7, title: 'Q7: Оценка интереса (1–10)' },
-        { idx: 8, title: 'Q8: Готовность (1–10)' },
-        { idx: 9, title: 'Q9: Материалы в Telegram' }
+        { idx: 1, title: 'Q1: Правильный ответ', question: 'Мы заметили прямую связь между Числом пожарных🚒 и Величиной разрушений💥.<br>Значит ли это, что для тушения пожара нужно звать как можно меньше пожарных?🔥✅🔥' },
+        { idx: 2, title: 'Q2: Правильный ответ', question: 'Чем больше продают мороженого, тем больше людей утонуло. Запретить мороженое?' },
+        { idx: 3, title: 'Q3: Правильный ответ', question: 'Чем больше книг в доме, тем лучше учится ребёнок. Достаточно завалить дом книгами?' },
+        { idx: 4, title: 'Q4: Правильный ответ', question: 'Модель поставила диагноз «рак». Можно ли так и сказать пациенту без объяснений?' },
+        { idx: 5, title: 'Q5: Правильный ответ', question: 'Модель говорит не покупать акции. Можно ли слепо следовать предсказанию?' },
+        { idx: 6, title: 'Q6: Правильный ответ', question: 'Опрос 1936 года предсказал неверного победителя. Почему?' },
+        { idx: 7, title: 'Q7: Оценка интереса (1–10)', question: 'Оцените ваш интерес к ML (1–10)' },
+        { idx: 8, title: 'Q8: Готовность (1–10)', question: 'Насколько готовы изучать ML (1–10)' },
+        { idx: 9, title: 'Q9: Материалы в Telegram', question: 'Вы умеете пользоваться Телеграмом?' },
+        { idx: 10, title: 'Q10: Решение о курсе', question: 'Решение о курсе' }
       ];
 
     function renderTable(items) {
@@ -178,7 +186,9 @@
         const hit = byStep.get(s.idx);
         if (!hit) return `${s.idx}: D`;
         const ans = hit.answer || '✓';
-        return `${s.idx}:${ans}`;
+        // Обрезаем длинные ответы для компактности в таблице
+        const ansShort = ans.length > 30 ? ans.substring(0, 30) + '...' : ans;
+        return `${s.idx}:${ansShort}`;
       });
       return parts.join(' → ');
     }
