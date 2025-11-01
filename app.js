@@ -193,4 +193,46 @@ function renderStep(container, stepIndex, onDone) {
     renderStep(root, step, next);
   };
   renderStep(root, step, next);
+  
+  // Отслеживание закрытия вкладки для отправки финального теста
+  const leadId = getLeadId();
+  if (leadId) {
+    // Сохраняем время начала теста
+    const testStartTime = Date.now();
+    localStorage.setItem('testStartTime', testStartTime.toString());
+    localStorage.setItem('leadId', leadId);
+    
+    // Отслеживаем закрытие/уход со страницы
+    window.addEventListener('beforeunload', () => {
+      // Отмечаем что тест был закрыт
+      localStorage.setItem('testClosed', 'true');
+      localStorage.setItem('testClosedTime', Date.now().toString());
+      
+      // Отправляем запрос на сервер для отправки финального теста через 30 секунд
+      // Используем fetch с keepalive для надежной отправки даже при закрытии страницы
+      const data = {
+        lead_id: leadId,
+        delay_seconds: 30
+      };
+      
+      // Используем fetch с keepalive, так как sendBeacon не поддерживает JSON body
+      fetch(`${API_BASE}/form_warm/schedule_final_test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        keepalive: true // Гарантирует отправку даже при закрытии страницы
+      }).catch(err => {
+        console.error('Error scheduling final test:', err);
+      });
+    });
+    
+    // Также отслеживаем просто уход со страницы (не обязательно закрытие)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // Страница скрыта - пользователь переключился или закрыл
+        localStorage.setItem('testClosed', 'true');
+        localStorage.setItem('testClosedTime', Date.now().toString());
+      }
+    });
+  }
 })();

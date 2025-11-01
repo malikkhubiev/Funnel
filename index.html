@@ -52,7 +52,12 @@
           el.innerHTML = `
             <div class="myown"><b>Имя:</b> ${lead.name || '-'} &nbsp; <b>Email:</b> ${lead.email || '-'} &nbsp; <b>Телефон:</b> ${lead.phone || '-'}</div>
           `;
-        }catch(e){ el.textContent = 'Ошибка загрузки данных лида'; }
+          // Сохраняем данные лида в window для использования в app.js
+          window.leadData = lead;
+        }catch(e){ 
+          console.error('Error loading lead:', e);
+          el.textContent = 'Ошибка загрузки данных лида: ' + e.message; 
+        }
       }
       loadLead();
     })();

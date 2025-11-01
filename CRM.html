@@ -62,10 +62,12 @@
       </select>
       <input id="pageInput" type="number" min="1" value="1" placeholder="Страница">
       <button id="reloadBtn">Обновить</button>
+      <button id="showChatBtn">Показать чаты</button>
     </div>
 
     <div id="leadCard" class="card" style="display:none"></div>
     <div id="tableCard" class="card" style="display:none"></div>
+    <div id="chatCard" class="card" style="display:none"></div>
   </div>
 
   <script>
@@ -78,9 +80,18 @@
     }
 
     async function fetchJson(url, opts) {
-      const res = await fetch(url, opts);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return await res.json();
+      try {
+        const res = await fetch(url, opts);
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('HTTP Error:', res.status, errorText);
+          throw new Error('HTTP ' + res.status + ': ' + errorText);
+        }
+        return await res.json();
+      } catch (e) {
+        console.error('Fetch error:', e);
+        throw e;
+      }
     }
 
     function renderLeadCard(data) {
@@ -300,7 +311,10 @@
     document.getElementById('reloadBtn').addEventListener('click', () => {
       const v = Number(document.getElementById('pageInput').value || '1');
       const page = Math.max(1, v|0);
-      loadAll(page).catch(err => alert(err.message));
+      loadAll(page).catch(err => {
+        console.error('Error loading leads:', err);
+        alert('Ошибка загрузки лидов: ' + err.message);
+      });
     });
 
     document.getElementById('openLeadBtn').addEventListener('click', async () => {
@@ -320,9 +334,91 @@
       }
     });
 
+    // Загрузка чатов
+    async function loadChatSessions(page = 1) {
+      const limit = 100;
+      const offset = (page - 1) * limit;
+      try {
+        const data = await fetchJson(`${API}/api/chat/all_sessions?limit=${limit}&offset=${offset}`);
+        renderChatSessions(data.sessions || []);
+      } catch (e) {
+        alert('Ошибка загрузки чатов: ' + e.message);
+      }
+    }
+
+    function renderChatSessions(sessions) {
+      const box = document.getElementById('chatCard');
+      box.style.display = '';
+      if (!sessions || sessions.length === 0) {
+        box.innerHTML = '<div class="muted">Нет сессий чата</div>';
+        return;
+      }
+      
+      let html = '<h2>История чатов</h2>';
+      html += '<table class="grid" style="margin-top:16px">';
+      html += '<thead><tr><th>Session ID</th><th>Сообщений</th><th>Последнее сообщение</th><th>Активность</th><th>Действие</th></tr></thead>';
+      html += '<tbody id="chatBody">';
+      
+      sessions.forEach(session => {
+        const lastMsg = session.last_message ? (session.last_message.length > 50 ? session.last_message.substring(0, 50) + '...' : session.last_message) : '-';
+        const lastAct = session.last_activity ? new Date(session.last_activity).toLocaleString() : '-';
+        html += `<tr>
+          <td class="mono" style="font-size:12px">${session.session_id}</td>
+          <td>${session.message_count}</td>
+          <td>${lastMsg}</td>
+          <td class="muted">${lastAct}</td>
+          <td><button onclick="viewChatHistory('${session.session_id}')" style="background:#1f6feb;color:#fff;border:0;border-radius:6px;padding:6px 12px;cursor:pointer">Просмотр</button></td>
+        </tr>`;
+      });
+      
+      html += '</tbody></table>';
+      box.innerHTML = html;
+    }
+
+    async function viewChatHistory(sessionId) {
+      try {
+        const data = await fetchJson(`${API}/api/chat/history?session_id=${sessionId}`);
+        const messages = data.messages || [];
+        
+        let html = `<h3>История чата: ${sessionId}</h3>`;
+        html += '<div style="max-height:600px;overflow-y:auto;margin-top:16px">';
+        
+        messages.forEach(msg => {
+          const time = msg.created_at ? new Date(msg.created_at).toLocaleString() : '';
+          const bg = msg.is_from_user ? '#1f6feb' : '#222';
+          const align = msg.is_from_user ? 'right' : 'left';
+          html += `<div style="background:${bg};padding:12px;margin:8px 0;border-radius:8px;text-align:${align};max-width:80%;margin-${align === 'right' ? 'left' : 'right'}:auto">
+            <div style="color:#fff;white-space:pre-wrap">${msg.message}</div>
+            <div style="color:#aaa;font-size:12px;margin-top:4px">${time} ${msg.is_from_user ? '(Клиент)' : '(AI)'}</div>
+          </div>`;
+        });
+        
+        html += '</div>';
+        html += '<button onclick="document.getElementById(\'chatCard\').style.display=\'none\'" style="margin-top:16px;background:#555;color:#fff;border:0;border-radius:6px;padding:10px 16px;cursor:pointer">Закрыть</button>';
+        
+        document.getElementById('chatCard').innerHTML = html;
+        document.getElementById('chatCard').style.display = '';
+      } catch (e) {
+        alert('Ошибка загрузки истории: ' + e.message);
+      }
+    }
+
+    window.viewChatHistory = viewChatHistory;
+
+    document.getElementById('showChatBtn')?.addEventListener('click', () => {
+      loadChatSessions(1);
+    });
+
     const initialPage = Number(getQueryParam('page') || '1');
     document.getElementById('pageInput').value = initialPage;
-    loadAll(initialPage).catch(err => alert(err.message));
+    loadAll(initialPage).catch(err => {
+      console.error('Error loading initial page:', err);
+      const tableCard = document.getElementById('tableCard');
+      if (tableCard) {
+        tableCard.style.display = '';
+        tableCard.innerHTML = '<div style="color:#f00">Ошибка загрузки лидов: ' + err.message + '</div>';
+      }
+    });
   })();
   </script>
 </body>
