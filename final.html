@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Тест на мышление инженера ML</title>
+  <title>Стоит ли тебе купить курс?</title>
   <link rel="stylesheet" href="style.css">
   <style>
     *{text-align: center;}
@@ -16,17 +16,23 @@
     .row .field { flex:1 1 240px; display:flex; flex-direction:column; gap:6px }
     .field input, .field textarea { border:1px solid #cfd6e4; border-radius:8px; padding:10px 12px; font-size:20px }
     .hint { color:#667085; font-size:12px }
-    .question { display: flex; justify-content: start; align-items: center; flex-direction: column; background: #1c1c1c; border:1px solid #e6eaf2; border-radius:10px; padding:30px 20px; margin:12px 0 }
-    .answers { display:flex; flex-wrap:wrap; gap:8px }
-    .answers button { border:1px solid #cfd6e4; background:#1c1c1c; border-radius:8px; padding:8px 12px; cursor:pointer }
+    .question { display: flex; justify-content: start; align-items: center; flex-direction: column; background: transparent; border: 0; border-radius:10px; padding:30px 20px; margin:12px 0 }
+    .answers { display:flex; justify-content: start; align-items: start; flex-direction: column;}
+    .answers button { max-width: 350px; border:1px solid #cfd6e4; background:#1c1c1c; border-radius:8px; padding:24px; cursor:pointer; color: white; font-size: 17px; }
+    .answers button.selectedd { background:#E83141; color: white }
+    .answers button:hover { background:#E83141; }
     .myown{font-size:20px; color:#fff; margin-top:8px; display: flex;justify-content: start;align-items: center; flex-direction: column;}
     .myown b{margin-top: 20px;}
+    .verdict { background:#1c1c1c; border:1px solid #e6eaf2; border-radius:10px; padding:30px 20px; margin:12px 0; color: white; }
+    .verdict h3 { color: #fff; }
+    .verdict-content { text-align: left; margin-top: 20px; }
+    .ans{text-align: left; font-size: 30px;}
   </style>
   </head>
 <body>
   <header class="header">
     <div class="container">
-      <h1>Тест на мышление инженера ML</h1>
+      <h1>Стоит ли тебе купить курс?</h1>
       <div id="leadInfo" class="hint">
         Загрузка данных лида…
       </div>
@@ -35,7 +41,7 @@
   <main class="container">
     <section id="quiz"></section>
   </main>
-  <script src="app.js"></script>
+  <script src="final_app.js"></script>
   <script>
     (function(){
       const API = 'https://aim-pay-bot-server-4c57.onrender.com';
@@ -59,3 +65,4 @@
   </script>
 </body>
 </html>
+

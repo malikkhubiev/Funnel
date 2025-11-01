@@ -98,6 +98,7 @@
           <div class="muted">${new Date().toLocaleString()}</div>
         </div>
         <div style="margin-top:8px">${lead.name || '-'} · <span class="mono">${lead.email || '-'}</span> · <span class="mono">${lead.phone || '-'}</span></div>
+        <div style="margin-top:8px">Telegram ID: <span class="mono">${lead.telegram_id || '-'}</span> · Username: <span class="mono">@${lead.username || '-'}</span></div>
         <div id="leadProgress" style="margin-top:12px" class="muted">загрузка прогресса…</div>
       `;
     }
@@ -112,14 +113,14 @@
       }
       el.classList.remove('muted');
       el.innerHTML = progress.map(r => {
-        const stepNum = Number(r.step);
-        const stepInfo = steps.find(s => s.idx === stepNum);
-        const questionText = stepInfo ? stepInfo.question : `Вопрос ${stepNum}`;
+        const stepInfo = steps.find(s => s.idx === r.step || s.idx === Number(r.step));
+        const questionText = stepInfo ? stepInfo.question : `Шаг ${r.step}`;
+        const title = stepInfo ? stepInfo.title : `Шаг ${r.step}`;
         return `
         <div class="question" style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #222">
-          <div style="margin-bottom:8px"><b>Шаг ${r.step}: ${stepInfo ? stepInfo.title : ''}</b></div>
-          <div style="margin-bottom:8px;color:#aaa;font-size:14px">Вопрос: ${questionText}</div>
-          <div style="margin-bottom:4px">Ответ: ${r.answer || '—'}</div>
+          <div style="margin-bottom:8px"><b>${title}</b></div>
+          <div style="margin-bottom:8px;color:#aaa;font-size:14px">${questionText}</div>
+          <div style="margin-bottom:4px">Ответ/Действие: ${r.answer || '—'}</div>
           <div class="muted" style="font-size:12px">${r.created_at}</div>
         </div>
       `;
@@ -136,7 +137,17 @@
         { idx: 7, title: 'Q7: Оценка интереса (1–10)', question: 'Оцените ваш интерес к ML (1–10)' },
         { idx: 8, title: 'Q8: Готовность (1–10)', question: 'Насколько готовы изучать ML (1–10)' },
         { idx: 9, title: 'Q9: Материалы в Telegram', question: 'Вы умеете пользоваться Телеграмом?' },
-        { idx: 10, title: 'Q10: Решение о курсе', question: 'Решение о курсе' }
+        { idx: 10, title: 'Q10: Решение о курсе', question: 'Решение о курсе' },
+        { idx: 'final_q1', title: 'Final Q1: Скорость просмотра', question: 'Ты смотришь видео. Твоя любимая скорость просмотра — это...' },
+        { idx: 'final_q2', title: 'Final Q2: Ламборгини', question: 'Ты в гараже с новой Ламборгини...' },
+        { idx: 'final_q3', title: 'Final Q3: Почему ML', question: 'Почему ты вообще хочешь учиться Machine Learning?' },
+        { idx: 'final_score', title: 'Final: Баллы', question: 'Итоговый балл' },
+        { idx: 'final_verdict', title: 'Final: Вердикт', question: 'Итоговый вердикт' },
+        { idx: 'bot_action_getting_started', title: 'Bot: Регистрация', question: 'Действие: getting_started (регистрация)' },
+        { idx: 'bot_action_pay_course_clicked', title: 'Bot: Нажатие оплатить', question: 'Действие: нажатие кнопки оплатить курс' },
+        { idx: 'bot_action_pay_email_entered', title: 'Bot: Ввод email', question: 'Действие: ввод pay_email' },
+        { idx: 'bot_action_pay_email_confirmed', title: 'Bot: Подтверждение email', question: 'Действие: подтверждение pay_email' },
+        { idx: 'bot_action_payment_after_email', title: 'Bot: Оплата после email', question: 'Действие: нажатие оплаты после ввода email' }
       ];
 
     function renderTable(items) {
@@ -150,6 +161,8 @@
               <th>Имя</th>
               <th>Email</th>
               <th>Телефон</th>
+              <th>Telegram ID</th>
+              <th>Username</th>
               <th>Оплата</th>
               <th>Шаги (по порядку)</th>
               <th>Создан</th>
@@ -166,6 +179,8 @@
           <td>${it.name || '-'}</td>
           <td class="mono">${it.email || '-'}</td>
           <td class="mono">${it.phone || '-'}</td>
+          <td class="mono">${it.telegram_id || '-'}</td>
+          <td class="mono">${it.username ? '@' + it.username : '-'}</td>
           <td class="payment">${paymentBadge}</td>
           <td class="progress muted">загрузка…</td>
           <td class="muted">${new Date(it.created_at).toLocaleString()}</td>
@@ -181,9 +196,10 @@
 
     function summarizeProgress(progress) {
       // Порядок шагов и ответы; отмечаем пропуски
-      const byStep = new Map(progress.map(p => [Number(p.step), p]));
+      const byStep = new Map(progress.map(p => [p.step.toString(), p]));
       const parts = steps.map(s => {
-        const hit = byStep.get(s.idx);
+        const stepKey = s.idx.toString();
+        const hit = byStep.get(stepKey);
         if (!hit) return `${s.idx}: D`;
         const ans = hit.answer || '✓';
         // Обрезаем длинные ответы для компактности в таблице

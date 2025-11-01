@@ -9,11 +9,35 @@ async function sendProgress(step, answer) {
   const leadId = getLeadId();
   if (!leadId) return; // тихо выходим, если не знаем лида
   try {
-    await fetch(`${API_BASE}/form_warm/clients/${leadId}/answers`, {
+    const response = await fetch(`${API_BASE}/form_warm/clients/${leadId}/answers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ step, answer })
     });
+    // Если ответ уже существует (409), обновляем его
+    if (response.status === 409) {
+      await fetch(`${API_BASE}/form_warm/clients/${leadId}/answers`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step, answer })
+      });
+    }
+  } catch (_) {}
+}
+
+// Загружаем сохраненные ответы
+let savedAnswers = {};
+async function loadSavedAnswers() {
+  const leadId = getLeadId();
+  if (!leadId) return;
+  try {
+    const resp = await fetch(`${API_BASE}/form_warm/clients/${leadId}/progress`);
+    const data = await resp.json();
+    if (data.status === 'success' && data.progress) {
+      data.progress.forEach(p => {
+        savedAnswers[p.step] = p.answer;
+      });
+    }
   } catch (_) {}
 }
 
@@ -128,14 +152,23 @@ function renderStep(container, stepIndex, onDone) {
   } else if (item.type === 'choice') {
     const btns = document.createElement('div');
     btns.className = 'answers';
+    const currentAnswer = savedAnswers[(stepIndex + 1).toString()];
+    
     item.options.forEach(opt => {
       const b = document.createElement('button');
       b.textContent = opt;
+      if (currentAnswer === opt) {
+        b.classList.add('selected');
+      }
       b.addEventListener('click', () => {
-        btns.querySelectorAll('button').forEach(x => x.disabled = true);
+        // Разрешаем изменить выбор
+        btns.querySelectorAll('button').forEach(x => {
+          x.classList.remove('selected');
+          x.disabled = false;
+        });
         b.classList.add('selected');
         next.disabled = false;
-        // фиксируем выбранный вариант для шагов 7-9
+        // Отправляем выбранный вариант (может обновиться, если уже был ответ)
         sendProgress(stepIndex + 1, opt);
       });
       btns.appendChild(b);
@@ -151,7 +184,8 @@ function renderStep(container, stepIndex, onDone) {
   container.appendChild(wrap);
 }
 
-(function init() {
+(async function init() {
+  await loadSavedAnswers();
   const root = document.getElementById('quiz');
   let step = 0;
   const next = () => {
